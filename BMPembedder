@@ -1,0 +1,73 @@
+#!/usr/bin/python3
+import sys
+from argparse import ArgumentParser
+from src.analyzer import Analyzer
+
+def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
+	print("="*15+" Embedding "+"="*15)
+	### Read files
+	with open(DATA, "rb") as f1:
+	    data = f1.read()
+
+	with open(HOST, "rb") as f2:
+	    host = Analyzer(f2.read(), False)
+
+	### Check file size, the host data payload must to be greater or equal then data file size.
+	host_size = host.get_payload_size() # BYTES
+	data_size = len(data)
+
+	print(f"INPUT:\n\t[+] Host size: {host_size} B\n\t[+] Data size: {data_size} B")
+
+	padding=host_size-data_size
+
+	if padding < 0:
+		print(f"**Error@Embedding**: the host image size < data size. The difference is {-1*padding}B")
+		sys.exit(1)
+	
+	### Padding
+	_hidden = bytearray(data)
+	if not NO_ZEROS:
+		### Append NULL bytes
+		_hidden.extend(b'\x00'*padding) 
+
+	### Fill the HOST with the data and write to OUTPUT
+	offset=host.get_offset()
+	
+	#host.set_payload(_hidden)
+	host.raw_image[offset:offset+data_size]=_hidden # BYPASS size check
+	
+	with open(OUT, "wb") as f3:
+	    f3.write(host.get_raw_image())
+
+	### Info
+	print(f"\nOUTPUT:\n\t[+] New file {OUT}\n\t[+] offset: @{offset} B\n\t[+] padding size: {padding} B")
+
+def get_input():
+	# Command-line arguments parser
+	parser = ArgumentParser(
+		prog="BMPembedder", 
+		description="Embedder data in BMP file.")
+	
+	parser = ArgumentParser(add_help=True)
+	parser.add_argument("-i", "--host", help="Host BMP image", type=str, required=True)
+	parser.add_argument("-d", "--data", help="File to embed in the host (any type) ", type=str, required=True)
+	parser.add_argument("-o", "--output", help="Output filename (BMP)", type=str, required=True)
+	parser.add_argument("--no-padding", help="Default padding is NULL byte, otherwise use HOST data", action="store_true", default=False, required=False)
+	
+	try:
+		args = parser.parse_args()
+	except SystemExit as e:
+		print(e)
+		
+	HOST = args.host
+	DATA = args.data
+	OUT = args.output
+	NO_ZEROS = args.no_padding
+	
+	return HOST, DATA, OUT, NO_ZEROS
+
+if __name__ == "__main__":
+	HOST, DATA, OUT, NO_ZEROS = get_input()
+	embedder(HOST,DATA,OUT,NO_ZEROS)
+
+
