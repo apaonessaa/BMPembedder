@@ -1,4 +1,5 @@
 import math
+import AnalyzerException
 
 class Analyzer:
     raw_image: bytearray=[]
@@ -7,6 +8,42 @@ class Analyzer:
     def __init__(self, raw_image, debug):
         self.raw_image = bytearray(raw_image)
         self.debug = debug
+
+    def check_width(self, func, w: int):
+        def wrapper(*args, **kargs):
+            width, _ = self.get_size()
+            if w<0 or w>=width:
+                raise AnalyzerException.ValueNotInExcludeEnd("Analyzer",w,0,width)
+            res = func(args, kargs)
+            return res
+        return wrapper
+
+    def check_height(self, func, h: int):
+        def wrapper(*args, **kargs):
+            _, height = self.get_size()
+            if h<0 or h>=height:
+                raise AnalyzerException.ValueNotInExcludeEnd("Analyzer",h,0,height)
+            res = func(args, kargs)
+            return res
+        return wrapper
+
+    def check_layer(self, func, layer: int):
+        def wrapper(*args, **kargs):
+            Bpp = self.get_Bpp()
+            if layer >= Bpp:
+                raise AnalyzerException.ValueNotInExcludeEnd("Analyzer",layer,0,Bpp)
+            res = func(args, kargs)
+            return res
+        return wrapper
+
+    def check_sublayer(self, func, sublayer: int):
+         def wrapper(self, *args, **kargs):
+            bpp = self.get_bpp()
+            if sublayer >= bpp:
+                raise AnalyzerException.ValueNotInExcludeEnd("Analyzer",sublayer,0,bpp)
+            res = func(self, args, kargs)
+            return res
+        return wrapper
 
     def set_raw_image(self, raw_image):
         self.raw_image = bytearray(raw_image)
@@ -49,17 +86,21 @@ class Analyzer:
         bpp = self.get_bpp()
         return bpp * width
     
-    def get_rowsize_Bpp(self):
+    def get_rowsize(self):
         # bitmap image row size in BYTES
         row_size_bpp = self.get_rowsize_bpp()
         return math.ceil(row_size_bpp / 8)
 
+    # Effective rowsize [data + padding]
+    def get_eff_rowsize(self):
+        return self.get_rowsize() + self.get_padding() 
+
     def get_payload_size(self):
         # bitmap image size in pixel, pixel array size
         # rawdata + padding
-        rowsize = self.get_rowsize_Bpp() + self.get_padding() # BYTES
-        _, height = self.get_size()
-        return height * rowsize # BYTES
+        rowsize = self.get_eff_rowsize() # BYTES
+        width, _ = self.get_size()
+        return width * rowsize # BYTES
     
     def get_payload(self):
         # bitmap image data (pixel array), bytearray format
@@ -78,10 +119,6 @@ class Analyzer:
         if len(payload) != payload_size:
             raise ValueError('Error')
         self.raw_image[start:start+payload_size] = payload
-    
-    def exist_layer(self, layer: int):
-        Bpp = self.get_Bpp()
-        return layer < Bpp
     
     # Padding
     # Bitmap pixel data is stored in rows (also known as strides or scan lines).
@@ -111,26 +148,26 @@ class Analyzer:
     
     # set LSB raw image to zero
     def clean(self, layer):
-        if not self.exist_layer(layer):
-            raise ValueError('Error@clean: out-of-bound layer.')
+        width, height = self.get_size()
         
-        t_width, t_height = self.get_size()
-        t_payload = self.get_payload()
-        t_rowsize = self.get_rowsize_Bpp()
-        t_padding = self.get_padding()
-        t_Bpp = self.get_Bpp()
-
-        for h in range(t_height):
-            t_offset = h * (t_rowsize + t_padding)
-            # init t_channel and set channel
-            t_channel = t_offset + layer 
-            for pixel in range(t_width): 
-                # apply zero substitution 
-                t_payload[t_channel] &= 0xFE
-                # switch to next pixel and same channel
-                t_channel += t_Bpp
-        self.set_payload(t_payload)
+        for i in range(width):
+            for j in range(height):
+                self.set_zero(i, j, 0, 0)
+        
         if (self.debug):
             print(f"The layer {layer} is cleaned.")
+        return self
+
+    # Layers: [ R G B ], Sub-layer: [0 1 2 3 4 5 6 7]
+    # Set value to pixel (i,j)
+    @check_width(i)
+    @check_height(j)
+    @check_layer(layer)
+    @check_sublayer(sublayer)
+    def set_zero(self, i: int, j: int, layer: int, sublayer: int):
+        Bpp = self.get_Bpp()
+        eff_rowsize = self.get_eff_rowsize()
+        offset = i*eff_rowsize + j*Bpp + layer + sublayer # (i*row + j*Bpp) + layer + sublayer
+        self.raw_image[offset] &= 0xFE
         return self
 

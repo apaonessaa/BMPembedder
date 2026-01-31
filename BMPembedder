@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import sys
 from argparse import ArgumentParser
-from src.analyzer import Analyzer
+from src.Analyzer import Analyzer
 
 def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
 	print("="*15+" Embedding "+"="*15)
