@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import sys
 from argparse import ArgumentParser
-from src.Analyzer import Analyzer
+from BMPstat.bmpstat import BMPstat
 
 def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
 	print("="*15+" Embedding "+"="*15)
@@ -10,7 +10,7 @@ def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
 	    data = f1.read()
 
 	with open(HOST, "rb") as f2:
-	    host = Analyzer(f2.read(), False)
+	    host = BMPstat(f2.read())
 
 	### Check file size, the host data payload must to be greater or equal then data file size.
 	host_size = host.get_payload_size() # BYTES
