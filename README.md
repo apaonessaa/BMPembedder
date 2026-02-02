@@ -10,6 +10,5 @@ BMPembedder is a tool that enables file embedding in BMP image file.
 
 ## TODO
 - LSB embedding (automatically fill the necessary layer)
-- Multi-layer LSB
 - Detector
 

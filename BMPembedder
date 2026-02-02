@@ -5,41 +5,48 @@ from BMPstat.bmpstat import BMPstat
 
 def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
 	print("="*15+" Embedding "+"="*15)
-	### Read files
+
 	with open(DATA, "rb") as f1:
-	    data = f1.read()
+		data = f1.read()
 
 	with open(HOST, "rb") as f2:
-	    host = BMPstat(f2.read())
+		"""
+			Host image is BMPstat parsing
+		"""
+		host = BMPstat(f2.read())
 
-	### Check file size, the host data payload must to be greater or equal then data file size.
-	host_size = host.get_payload_size() # BYTES
+	"""
+		The data must to be <= data payload of the host image 
+	"""
+	buf_size = host.get_payload_size() + host.get_padding() # BYTES
 	data_size = len(data)
 
-	print(f"INPUT:\n\t[+] Host size: {host_size} B\n\t[+] Data size: {data_size} B")
+	print(f"INPUT:\n\t[+] Host size: {buf_size} B\n\t[+] Data size: {data_size} B")
 
-	padding=host_size-data_size
+	padding=buf_size-data_size
 
 	if padding < 0:
 		print(f"**Error@Embedding**: the host image size < data size. The difference is {-1*padding}B")
 		sys.exit(1)
-	
-	### Padding
+
+	### Embedding
 	_hidden = bytearray(data)
 	if not NO_ZEROS:
-		### Append NULL bytes
+		"""
+			Embedding with padding (NULL bytes)
+		"""
 		_hidden.extend(b'\x00'*padding) 
+		host.set_payload(_hidden)
+	else:
+		"""
+			Embedding without padding (Substitution)
+		"""
+		offset=host.get_offset()
+		host.raw_image[offset: offset+data_size] = _hidden # BYPASS size check
 
-	### Fill the HOST with the data and write to OUTPUT
-	offset=host.get_offset()
-	
-	#host.set_payload(_hidden)
-	host.raw_image[offset:offset+data_size]=_hidden # BYPASS size check
-	
 	with open(OUT, "wb") as f3:
-	    f3.write(host.get_raw_image())
+		f3.write(host.get_raw_image())
 
-	### Info
 	print(f"\nOUTPUT:\n\t[+] New file {OUT}\n\t[+] offset: @{offset} B\n\t[+] padding size: {padding} B")
 
 def get_input():
@@ -47,13 +54,13 @@ def get_input():
 	parser = ArgumentParser(
 		prog="BMPembedder", 
 		description="Embedder data in BMP file.")
-	
+
 	parser = ArgumentParser(add_help=True)
 	parser.add_argument("-i", "--host", help="Host BMP image", type=str, required=True)
 	parser.add_argument("-d", "--data", help="File to embed in the host (any type) ", type=str, required=True)
 	parser.add_argument("-o", "--output", help="Output filename (BMP)", type=str, required=True)
 	parser.add_argument("--no-padding", help="Default padding is NULL byte, otherwise use HOST data", action="store_true", default=False, required=False)
-	
+
 	try:
 		args = parser.parse_args()
 	except SystemExit as e:
@@ -63,7 +70,7 @@ def get_input():
 	DATA = args.data
 	OUT = args.output
 	NO_ZEROS = args.no_padding
-	
+
 	return HOST, DATA, OUT, NO_ZEROS
 
 if __name__ == "__main__":
