@@ -31,6 +31,7 @@ def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
 
 	### Embedding
 	_hidden = bytearray(data)
+	offset=host.get_offset()
 	if not NO_ZEROS:
 		"""
 			Embedding with padding (NULL bytes)
@@ -41,7 +42,6 @@ def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
 		"""
 			Embedding without padding (Substitution)
 		"""
-		offset=host.get_offset()
 		host.raw_image[offset: offset+data_size] = _hidden # BYPASS size check
 
 	with open(OUT, "wb") as f3:
