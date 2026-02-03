@@ -1,7 +1,48 @@
 #!/usr/bin/python3
 import sys
 from argparse import ArgumentParser
+
 from BMPstat.bmpstat import BMPstat
+
+def LSB_embedder_one_layer(host: BMPstat, data: bytearray, layer: int, max_sublayer: int):
+	"""
+		The data will be embedded in the LSB of host.
+		
+		- How many LSB? max_sublayer is the upper bound.
+		- How many bits?
+			Host data payload = host size // Bpp (1 layer) [Bytes per layer]
+			Host data payload = (host size // Bpp) * max_sublayer [max bits per layer]
+			Host data payload = ((host size // Bpp) * max_sublayer) // 8 [Bytes]
+
+		Check if max_sublayer < bpp
+		Check if data size * 8 (bits) < host data payload.
+	"""
+	host.check_layer(layer)
+	host.check_sublayer(max_sublayer)
+
+	host_data_payload = ((host.get_payload_size() // host.get_Bpp()) * max_sublayer // 8)
+	data_size = len(data)
+
+	padding = host_data_payload - data_size
+	if padding < 0:
+		print(f"Error@LSB_embedder_one_layer: Host data payload {host_data_payload}B < {data_size}B")
+		sys.exit(1)
+	
+	"""
+		Fill data with padding necessary to fill until max_sublayer.
+	"""
+	data.extend(b'\x00'*padding)
+
+	width, height = host.get_size()
+	k = 0
+	for sublayer in range(max_sublayer+1): # included
+		for j in range(height):
+			for i in range(width):
+				if data[k % data_size] & (0x1 << sublayer):
+					host.set_one(i, j, layer, sublayer)
+				else:
+					host.set_zero(i, j, layer, sublayer)
+				k+=1
 
 def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
 	print("="*15+" Embedding "+"="*15)
@@ -29,7 +70,6 @@ def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
 		print(f"**Error@Embedding**: the host image size < data size. The difference is {-1*padding}B")
 		sys.exit(1)
 
-	### Embedding
 	_hidden = bytearray(data)
 	offset=host.get_offset()
 	if not NO_ZEROS:
@@ -38,11 +78,18 @@ def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
 		"""
 		_hidden.extend(b'\x00'*padding) 
 		host.set_payload(_hidden)
+
 	else:
 		"""
 			Embedding without padding (Substitution)
 		"""
 		host.raw_image[offset: offset+data_size] = _hidden # BYPASS size check
+
+	#else:
+	# 	"""
+	#		LSB embedding
+	#	"""
+	#	LSB_embedder_one_layer(host, _hidden, 2, 1)
 
 	with open(OUT, "wb") as f3:
 		f3.write(host.get_raw_image())
