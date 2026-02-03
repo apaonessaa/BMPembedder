@@ -59,10 +59,10 @@ def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
 	"""
 		The data must to be <= data payload of the host image 
 	"""
-	buf_size = host.get_payload_size() + host.get_padding() # BYTES
+	buf_size = host.get_payload_size()
 	data_size = len(data)
 
-	print(f"INPUT:\n\t[+] Host size: {buf_size} B\n\t[+] Data size: {data_size} B")
+	print(f"INPUT:\n\t[+] Host size: {buf_size} B\n\t[+] Data size: {data_size} B\n")
 
 	padding=buf_size-data_size
 
@@ -73,16 +73,12 @@ def embedder(HOST: str, DATA: str, OUT: str, NO_ZEROS: bool):
 	_hidden = bytearray(data)
 	offset=host.get_offset()
 	if not NO_ZEROS:
-		"""
-			Embedding with padding (NULL bytes)
-		"""
+		print(f"""[>] Embedding with padding ({padding} bytes of NULL)""")
 		_hidden.extend(b'\x00'*padding) 
 		host.set_payload(_hidden)
 
 	else:
-		"""
-			Embedding without padding (Substitution)
-		"""
+		print("""[>] Embedding & mantain the data (Substitution)""")
 		host.raw_image[offset: offset+data_size] = _hidden # BYPASS size check
 
 	#else:
